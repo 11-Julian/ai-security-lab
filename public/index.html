@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>AI Security Lab</title>
+
+  <style>
+
+    body {
+      background: #0f1117;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #00ff88;
+    }
+
+    h2 {
+      margin-top: 40px;
+    }
+
+    .alerts-container {
+      margin-bottom: 30px;
+    }
+
+    .alert-card {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      color: white;
+    }
+
+    .CRITICAL {
+      background: #8b0000;
+      border-left: 8px solid red;
+    }
+
+    .HIGH {
+      background: #7a3d00;
+      border-left: 8px solid orange;
+    }
+
+    .MEDIUM {
+      background: #665500;
+      border-left: 8px solid yellow;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1a1d24;
+    }
+
+    th, td {
+      border: 1px solid #333;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #222;
+      color: #00ff88;
+    }
+
+    tr:nth-child(even) {
+      background: #16181f;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <h1>🛡 AI Security Lab Dashboard</h1>
+
+  <h2>🚨 Active Alerts</h2>
+
+  <div class="alerts-container" id="alertsContainer"></div>
+
+  <h2>📜 Incoming Logs</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Device</th>
+        <th>Event Type</th>
+        <th>User</th>
+        <th>IP Address</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+
+    <tbody id="logTableBody"></tbody>
+
+  </table>
+
+  <script>
+
+    async function loadLogs() {
+
+      const response = await fetch("/logs");
+      const logs = await response.json();
+
+      const tableBody = document.getElementById("logTableBody");
+
+      tableBody.innerHTML = "";
+
+      logs.forEach(log => {
+
+        const row = `
+          <tr>
+            <td>${log.id}</td>
+            <td>${log.device}</td>
+            <td>${log.event_type}</td>
+            <td>${log.username}</td>
+            <td>${log.ip_address}</td>
+            <td>${log.timestamp}</td>
+          </tr>
+        `;
+
+        tableBody.innerHTML += row;
+      });
+    }
+
+    async function loadAlerts() {
+
+      const response = await fetch("/alerts");
+      const alerts = await response.json();
+
+      const alertsContainer =
+        document.getElementById("alertsContainer");
+
+      alertsContainer.innerHTML = "";
+
+      alerts.forEach(alert => {
+
+        const alertHTML = `
+          <div class="alert-card ${alert.severity}">
+            <h3>${alert.type}</h3>
+
+            <p><strong>Severity:</strong>
+            ${alert.severity}</p>
+
+            <p><strong>IP Address:</strong>
+            ${alert.ip_address || "N/A"}</p>
+
+            <p><strong>Device:</strong>
+            ${alert.device || "N/A"}</p>
+
+            <p><strong>Timestamp:</strong>
+            ${alert.timestamp}</p>
+          </div>
+        `;
+
+        alertsContainer.innerHTML += alertHTML;
+      });
+    }
+
+    loadLogs();
+    loadAlerts();
+
+    // Auto refresh every 5 seconds
+    setInterval(() => {
+      loadLogs();
+      loadAlerts();
+    }, 5000);
+
+  </script>
+
+</body>
+</html>
