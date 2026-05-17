@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>AI Security Lab</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Security Lab Dashboard</title>
 
   <style>
-
     body {
-      background: #0f1117;
-      color: white;
-      font-family: Arial, sans-serif;
+      margin: 0;
       padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #0f1117;
+      color: #ffffff;
     }
 
     h1 {
@@ -20,45 +19,64 @@
     }
 
     h2 {
-      margin-top: 40px;
+      margin-top: 30px;
+      color: #ffffff;
     }
 
-    .alerts-container {
-      margin-bottom: 30px;
+    button {
+      padding: 10px 15px;
+      background: #00ff88;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
     }
 
-    .alert-card {
+    button:hover {
+      background: #00cc6a;
+    }
+
+    .alert {
       padding: 15px;
-      border-radius: 8px;
       margin-bottom: 15px;
-      color: white;
-    }
-
-    .CRITICAL {
-      background: #8b0000;
-      border-left: 8px solid red;
+      border-radius: 8px;
     }
 
     .HIGH {
       background: #7a3d00;
-      border-left: 8px solid orange;
+      border-left: 6px solid orange;
     }
 
     .MEDIUM {
       background: #665500;
-      border-left: 8px solid yellow;
+      border-left: 6px solid yellow;
+    }
+
+    .CRITICAL {
+      background: #8b0000;
+      border-left: 6px solid red;
+    }
+
+    .info {
+      background: #1a1d24;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      color: #cfcfcf;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 10px;
       background: #1a1d24;
     }
 
     th, td {
       border: 1px solid #333;
-      padding: 10px;
-      text-align: left;
+      padding: 8px;
+      font-size: 14px;
     }
 
     th {
@@ -69,7 +87,6 @@
     tr:nth-child(even) {
       background: #16181f;
     }
-
   </style>
 </head>
 
@@ -77,42 +94,39 @@
 
   <h1>🛡 AI Security Lab Dashboard</h1>
 
-  <h2>🚨 Active Alerts</h2>
+  <h2>🧠 AI System Overview</h2>
+  <button onclick="loadAISummary()">Generate AI Summary</button>
+  <div id="aiSummary" class="info"></div>
 
-  <div class="alerts-container" id="alertsContainer"></div>
+  <h2>🚨 Alerts</h2>
+  <div id="alerts"></div>
 
-  <h2>📜 Incoming Logs</h2>
-
+  <h2>📜 Logs</h2>
   <table>
     <thead>
       <tr>
         <th>ID</th>
         <th>Device</th>
-        <th>Event Type</th>
+        <th>Event</th>
         <th>User</th>
-        <th>IP Address</th>
+        <th>IP</th>
         <th>Timestamp</th>
       </tr>
     </thead>
-
-    <tbody id="logTableBody"></tbody>
-
+    <tbody id="logs"></tbody>
   </table>
 
   <script>
 
     async function loadLogs() {
+      const res = await fetch("/logs");
+      const data = await res.json();
 
-      const response = await fetch("/logs");
-      const logs = await response.json();
+      const table = document.getElementById("logs");
+      table.innerHTML = "";
 
-      const tableBody = document.getElementById("logTableBody");
-
-      tableBody.innerHTML = "";
-
-      logs.forEach(log => {
-
-        const row = `
+      data.forEach(log => {
+        table.innerHTML += `
           <tr>
             <td>${log.id}</td>
             <td>${log.device}</td>
@@ -122,53 +136,51 @@
             <td>${log.timestamp}</td>
           </tr>
         `;
-
-        tableBody.innerHTML += row;
       });
     }
 
     async function loadAlerts() {
+      const res = await fetch("/alerts");
+      const data = await res.json();
 
-      const response = await fetch("/alerts");
-      const alerts = await response.json();
+      const container = document.getElementById("alerts");
+      container.innerHTML = "";
 
-      const alertsContainer =
-        document.getElementById("alertsContainer");
+      data.forEach(alert => {
 
-      alertsContainer.innerHTML = "";
-
-      alerts.forEach(alert => {
-
-        const alertHTML = `
-          <div class="alert-card ${alert.severity}">
+        container.innerHTML += `
+          <div class="alert ${alert.severity}">
             <h3>${alert.type}</h3>
 
-            <p><strong>Severity:</strong>
-            ${alert.severity}</p>
+            <p><b>Severity:</b> ${alert.severity}</p>
+            <p><b>Device:</b> ${alert.device || "N/A"}</p>
+            <p><b>IP:</b> ${alert.ip_address || "N/A"}</p>
+            <p><b>Count:</b> ${alert.count || "N/A"}</p>
 
-            <p><strong>IP Address:</strong>
-            ${alert.ip_address || "N/A"}</p>
-
-            <p><strong>Device:</strong>
-            ${alert.device || "N/A"}</p>
-
-            <p><strong>Timestamp:</strong>
-            ${alert.timestamp}</p>
+            <div class="info">
+              <b>AI Analysis:</b><br/>
+              ${alert.analysis || "No analysis yet"}
+            </div>
           </div>
         `;
-
-        alertsContainer.innerHTML += alertHTML;
       });
     }
 
-    loadLogs();
-    loadAlerts();
+    async function loadAISummary() {
+      const res = await fetch("/ai/summary");
+      const data = await res.json();
 
-    // Auto refresh every 5 seconds
-    setInterval(() => {
+      document.getElementById("aiSummary").innerText =
+        data.summary;
+    }
+
+    function refresh() {
       loadLogs();
       loadAlerts();
-    }, 5000);
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
 
   </script>
 
