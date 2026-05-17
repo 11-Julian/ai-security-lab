@@ -1,23 +1,14 @@
-require("dotenv").config();
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
-const OpenAI = require("openai");
+
+// ✅ Local AI (Ollama)
+const { Ollama } = require("ollama");
+const ollama = new Ollama();
 
 const app = express();
 
-// =========================
-// OpenAI setup
-// =========================
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// =========================
-// Middleware
-// =========================
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static("public"));
@@ -29,7 +20,7 @@ let alerts = [];
 const eventHistory = [];
 
 // =========================
-// Database setup
+// SQLite DB
 // =========================
 const db = new sqlite3.Database("logs.db");
 
@@ -45,7 +36,7 @@ db.run(`
 `);
 
 // =========================
-// Helpers
+// Helper: recent events
 // =========================
 function getRecentEvents(minutes = 2) {
   const cutoff = new Date(Date.now() - minutes * 60 * 1000);
@@ -54,10 +45,11 @@ function getRecentEvents(minutes = 2) {
 }
 
 // =========================
-// AI: Alert analysis
+// 🧠 LOCAL AI: Alert Analysis
 // =========================
 async function generateAIAnalysis(alert) {
   try {
+
     const prompt = `
 You are a cybersecurity SOC analyst.
 
@@ -69,23 +61,28 @@ Device: ${alert.device || "N/A"}
 IP: ${alert.ip_address || "N/A"}
 Count: ${alert.count || "N/A"}
 
-Provide:
-1. Meaning of the alert
-2. Risk level explanation
+Explain:
+1. What is happening
+2. Risk level
 3. Recommended action
 
-Be concise.
+Be concise and practical.
 `;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }]
+    const response = await ollama.chat({
+      model: "llama3",
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
     });
 
-    return response.choices[0].message.content;
+    return response.message.content;
 
   } catch (err) {
-    console.error("AI error:", err.message);
+    console.error("❌ Ollama AI Error:", err);
     return "AI analysis unavailable.";
   }
 }
@@ -103,7 +100,7 @@ app.post("/logs", async (req, res) => {
     timestamp
   } = req.body;
 
-  // store in memory
+  // store event
   eventHistory.push({
     device,
     event_type,
@@ -115,7 +112,7 @@ app.post("/logs", async (req, res) => {
   const recent = getRecentEvents(2);
 
   // =========================
-  // FAILURE DETECTION
+  // Brute force detection
   // =========================
   const failures = recent.filter(e =>
     e.ip_address === ip_address &&
@@ -148,7 +145,7 @@ app.post("/logs", async (req, res) => {
   }
 
   // =========================
-  // SUCCESS AFTER FAILURES
+  // Suspicious login pattern
   // =========================
   const successes = recent.filter(e =>
     e.ip_address === ip_address &&
@@ -180,7 +177,7 @@ app.post("/logs", async (req, res) => {
   }
 
   // =========================
-  // DEVICE ERROR SPIKE
+  // Device error spike
   // =========================
   const deviceErrors = recent.filter(e =>
     e.device === device &&
@@ -213,7 +210,7 @@ app.post("/logs", async (req, res) => {
   }
 
   // =========================
-  // Store in DB
+  // Save to DB
   // =========================
   db.run(
     `INSERT INTO logs (device, event_type, username, ip_address, timestamp)
@@ -228,10 +225,14 @@ app.post("/logs", async (req, res) => {
 // GET /logs
 // =========================
 app.get("/logs", (req, res) => {
-  db.all("SELECT * FROM logs ORDER BY id DESC 50", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  db.all(
+    "SELECT * FROM logs ORDER BY id DESC LIMIT 50",
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
 });
 
 // =========================
@@ -242,39 +243,46 @@ app.get("/alerts", (req, res) => {
 });
 
 // =========================
-// AI SYSTEM SUMMARY
+// 🧠 LOCAL AI: SYSTEM SUMMARY
 // =========================
 app.get("/ai/summary", async (req, res) => {
 
   try {
 
     const prompt = `
-You are a SOC analyst.
+You are a SOC (Security Operations Center) analyst.
 
-Analyze all active alerts:
+Analyze these active alerts:
 
 ${JSON.stringify(alerts, null, 2)}
 
 Provide:
 1. System overview
-2. Attack vs normal behavior
-3. Risk level
-4. Recommended response
+2. Threat assessment
+3. Priority level
+4. Recommended actions
 `;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }]
+    const response = await ollama.chat({
+      model: "llama3",
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
     });
 
     res.json({
-      summary: response.choices[0].message.content
+      summary: response.message.content
     });
 
   } catch (err) {
-    console.error("FULL AI ERROR:", err);
+
+    console.error("❌ Summary error:", err);
+
     res.status(500).json({
-      error: err.message
+      error: "Local AI summary failed"
     });
   }
 });
