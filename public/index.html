@@ -14,14 +14,8 @@
       color: #ffffff;
     }
 
-    h1 {
-      color: #00ff88;
-    }
-
-    h2 {
-      margin-top: 30px;
-      color: #ffffff;
-    }
+    h1 { color: #00ff88; }
+    h2 { margin-top: 30px; color: #ffffff; }
 
     button {
       padding: 10px 15px;
@@ -32,9 +26,7 @@
       margin-bottom: 10px;
     }
 
-    button:hover {
-      background: #00cc6a;
-    }
+    button:hover { background: #00cc6a; }
 
     .alert {
       padding: 15px;
@@ -42,20 +34,9 @@
       border-radius: 8px;
     }
 
-    .HIGH {
-      background: #7a3d00;
-      border-left: 6px solid orange;
-    }
-
-    .MEDIUM {
-      background: #665500;
-      border-left: 6px solid yellow;
-    }
-
-    .CRITICAL {
-      background: #8b0000;
-      border-left: 6px solid red;
-    }
+    .HIGH { background: #7a3d00; border-left: 6px solid orange; }
+    .MEDIUM { background: #665500; border-left: 6px solid yellow; }
+    .CRITICAL { background: #8b0000; border-left: 6px solid red; }
 
     .info {
       background: #1a1d24;
@@ -79,19 +60,12 @@
       font-size: 14px;
     }
 
-    th {
-      background: #222;
-      color: #00ff88;
-    }
-
-    tr:nth-child(even) {
-      background: #16181f;
-    }
+    th { background: #222; color: #00ff88; }
+    tr:nth-child(even) { background: #16181f; }
   </style>
 </head>
 
 <body>
-
   <h1>🛡 AI Security Lab Dashboard</h1>
 
   <h2>🧠 AI System Overview</h2>
@@ -117,6 +91,10 @@
   </table>
 
   <script>
+    // IMPORTANT: treat all server/LLM output as plain text.
+    function safeText(v) {
+      return document.createTextNode(v == null ? "" : String(v));
+    }
 
     async function loadLogs() {
       const res = await fetch("/logs");
@@ -126,16 +104,16 @@
       table.innerHTML = "";
 
       data.forEach(log => {
-        table.innerHTML += `
-          <tr>
-            <td>${log.id}</td>
-            <td>${log.device}</td>
-            <td>${log.event_type}</td>
-            <td>${log.username}</td>
-            <td>${log.ip_address}</td>
-            <td>${log.timestamp}</td>
-          </tr>
-        `;
+        const tr = document.createElement("tr");
+
+        const tdId = document.createElement("td"); tdId.appendChild(safeText(log.id)); tr.appendChild(tdId);
+        const tdDevice = document.createElement("td"); tdDevice.appendChild(safeText(log.device)); tr.appendChild(tdDevice);
+        const tdEvent = document.createElement("td"); tdEvent.appendChild(safeText(log.event_type)); tr.appendChild(tdEvent);
+        const tdUser = document.createElement("td"); tdUser.appendChild(safeText(log.username)); tr.appendChild(tdUser);
+        const tdIp = document.createElement("td"); tdIp.appendChild(safeText(log.ip_address)); tr.appendChild(tdIp);
+        const tdTs = document.createElement("td"); tdTs.appendChild(safeText(log.timestamp)); tr.appendChild(tdTs);
+
+        table.appendChild(tr);
       });
     }
 
@@ -147,22 +125,31 @@
       container.innerHTML = "";
 
       data.forEach(alert => {
+        const alertEl = document.createElement("div");
+        alertEl.className = `alert ${alert.severity}`;
 
-        container.innerHTML += `
-          <div class="alert ${alert.severity}">
-            <h3>${alert.type}</h3>
+        const title = document.createElement("h3");
+        title.appendChild(safeText(alert.type));
+        alertEl.appendChild(title);
 
-            <p><b>Severity:</b> ${alert.severity}</p>
-            <p><b>Device:</b> ${alert.device || "N/A"}</p>
-            <p><b>IP:</b> ${alert.ip_address || "N/A"}</p>
-            <p><b>Count:</b> ${alert.count || "N/A"}</p>
+        const pSev = document.createElement("p"); pSev.innerHTML = "<b>Severity:</b>"; pSev.appendChild(safeText(` ${alert.severity || ""}`)); alertEl.appendChild(pSev);
+        const pDev = document.createElement("p"); pDev.innerHTML = "<b>Device:</b>"; pDev.appendChild(safeText(` ${alert.device || "N/A"}`)); alertEl.appendChild(pDev);
+        const pIp = document.createElement("p"); pIp.innerHTML = "<b>IP:</b>"; pIp.appendChild(safeText(` ${alert.ip_address || "N/A"}`)); alertEl.appendChild(pIp);
+        const pCount = document.createElement("p"); pCount.innerHTML = "<b>Count:</b>"; pCount.appendChild(safeText(` ${alert.count || "N/A"}`)); alertEl.appendChild(pCount);
 
-            <div class="info">
-              <b>AI Analysis:</b><br/>
-              ${alert.analysis || "No analysis yet"}
-            </div>
-          </div>
-        `;
+        const info = document.createElement("div");
+        info.className = "info";
+
+        const label = document.createElement("div");
+        label.innerHTML = "<b>AI Analysis:</b><br/>";
+        info.appendChild(label);
+
+        const analysisText = document.createElement("div");
+        analysisText.appendChild(safeText(alert.analysis || "No analysis yet"));
+        info.appendChild(analysisText);
+
+        alertEl.appendChild(info);
+        container.appendChild(alertEl);
       });
     }
 
@@ -170,8 +157,8 @@
       const res = await fetch("/ai/summary");
       const data = await res.json();
 
-      document.getElementById("aiSummary").innerText =
-        data.summary;
+      // plain text only
+      document.getElementById("aiSummary").textContent = data.summary || "";
     }
 
     function refresh() {
@@ -181,8 +168,7 @@
 
     refresh();
     setInterval(refresh, 5000);
-
   </script>
-
 </body>
 </html>
+

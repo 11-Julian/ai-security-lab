@@ -88,6 +88,19 @@ Be concise and practical.
 }
 
 // =========================
+// Event type normalization
+// =========================
+function normalizeEventType(type) {
+  const map = {
+    FailureAudit: "login_failed",
+    SuccessAudit: "login_success",
+    Error: "system_error"
+  };
+
+  return map[type] || type;
+}
+
+// =========================
 // POST /logs (INGESTION)
 // =========================
 app.post("/logs", async (req, res) => {
@@ -100,13 +113,17 @@ app.post("/logs", async (req, res) => {
     timestamp
   } = req.body;
 
+  const normalizedType = normalizeEventType(event_type);
+
   // store event
   eventHistory.push({
     device,
-    event_type,
+    event_type: normalizedType,
     username,
     ip_address,
-    timestamp: new Date()
+    timestamp: timestamp
+    ? new Date(timestamp)
+    : new Date()  
   });
 
   const recent = getRecentEvents(2);
@@ -116,10 +133,7 @@ app.post("/logs", async (req, res) => {
   // =========================
   const failures = recent.filter(e =>
     e.ip_address === ip_address &&
-    (
-      e.event_type === "FailureAudit" ||
-      e.event_type === "login_failed"
-    )
+    e.event_type === "login_failed"
   );
 
   if (failures.length >= 3) {
@@ -150,7 +164,6 @@ app.post("/logs", async (req, res) => {
   const successes = recent.filter(e =>
     e.ip_address === ip_address &&
     (
-      e.event_type === "SuccessAudit" ||
       e.event_type === "login_success"
     )
   );
@@ -182,8 +195,8 @@ app.post("/logs", async (req, res) => {
   const deviceErrors = recent.filter(e =>
     e.device === device &&
     (
-      e.event_type === "Error" ||
-      e.event_type === "FailureAudit"
+      e.event_type === "system_error" ||
+      e.event_type === "login_failed"
     )
   );
 
@@ -215,7 +228,7 @@ app.post("/logs", async (req, res) => {
   db.run(
     `INSERT INTO logs (device, event_type, username, ip_address, timestamp)
      VALUES (?, ?, ?, ?, ?)`,
-    [device, event_type, username, ip_address, timestamp]
+    [device, normalizedType, username, ip_address, timestamp]
   );
 
   res.json({ status: "log stored" });
@@ -249,12 +262,14 @@ app.get("/ai/summary", async (req, res) => {
 
   try {
 
+    const lastAlerts = alerts.slice(-10);
+
     const prompt = `
 You are a SOC (Security Operations Center) analyst.
 
-Analyze these active alerts:
+Analyze these active alerts (showing only the most recent 10):
 
-${JSON.stringify(alerts, null, 2)}
+${JSON.stringify(lastAlerts, null, 2)}
 
 Provide:
 1. System overview
@@ -262,6 +277,7 @@ Provide:
 3. Priority level
 4. Recommended actions
 `;
+
 
     const response = await ollama.chat({
       model: "llama3",
