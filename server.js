@@ -24,19 +24,57 @@ const eventHistory = [];
 // =========================
 const db = new sqlite3.Database("logs.db");
 
-db.run(`
-  CREATE TABLE IF NOT EXISTS logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device TEXT,
-    event_type TEXT,
-    username TEXT,
-    ip_address TEXT,
-    timestamp TEXT,
-    source TEXT,
-    event_id TEXT,
-    status_code TEXT
-  )
-`);
+function ensureLogColumns() {
+  db.serialize(() => {
+    // Always create base table if it doesn't exist.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device TEXT,
+        event_type TEXT,
+        username TEXT,
+        ip_address TEXT,
+        timestamp TEXT
+      )
+    `);
+
+    const printColumns = (label) => {
+      db.all('PRAGMA table_info(logs)', [], (err, rows) => {
+        if (err) {
+          console.error(`[DB] ${label}: PRAGMA failed:`, err.message);
+          return;
+        }
+        console.log(`[DB] ${label} columns:`, rows.map(r => r.name));
+      });
+    };
+
+    printColumns('before ALTER');
+
+    // If the table already exists (older schema), SQLite won't automatically
+    // add columns. We must add them explicitly.
+    db.run(`ALTER TABLE logs ADD COLUMN source TEXT`, err => {
+      if (err && String(err.message).includes('duplicate column name')) return;
+      if (err) console.error('Schema upgrade error (source):', err.message);
+    });
+
+    db.run(`ALTER TABLE logs ADD COLUMN event_id TEXT`, err => {
+      if (err && String(err.message).includes('duplicate column name')) return;
+      if (err) console.error('Schema upgrade error (event_id):', err.message);
+    });
+
+    db.run(`ALTER TABLE logs ADD COLUMN status_code TEXT`, err => {
+      if (err && String(err.message).includes('duplicate column name')) return;
+      if (err) console.error('Schema upgrade error (status_code):', err.message);
+    });
+
+    // Print after a tiny delay to allow ALTER statements to apply.
+    setTimeout(() => printColumns('after ALTER'), 250);
+  });
+}
+
+ensureLogColumns();
+
+
 
 // =========================
 // Helper: recent events
