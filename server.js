@@ -31,7 +31,10 @@ db.run(`
     event_type TEXT,
     username TEXT,
     ip_address TEXT,
-    timestamp TEXT
+    timestamp TEXT,
+    source TEXT,
+    event_id TEXT,
+    status_code TEXT
   )
 `);
 
@@ -110,7 +113,10 @@ app.post("/logs", async (req, res) => {
     event_type,
     username,
     ip_address,
-    timestamp
+    timestamp,
+    source,
+    event_id,
+    status_code
   } = req.body;
 
   const normalizedType = normalizeEventType(event_type);
@@ -226,9 +232,9 @@ app.post("/logs", async (req, res) => {
   // Save to DB
   // =========================
   db.run(
-    `INSERT INTO logs (device, event_type, username, ip_address, timestamp)
-     VALUES (?, ?, ?, ?, ?)`,
-    [device, normalizedType, username, ip_address, timestamp]
+    `INSERT INTO logs (device, event_type, username, ip_address, timestamp, source, event_id, status_code)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [device, normalizedType, username, ip_address, timestamp, source || "local", event_id || null, status_code || null]
   );
 
   res.json({ status: "log stored" });
